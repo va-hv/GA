@@ -1,0 +1,12 @@
+.env
+node_modules/
+dist/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+.DS_Store
+backups/
+.demo-password
+deploy/certs/*.pem
+deploy/certs/*.key
+deploy/certs/*.crt

@@ -1,0 +1,113 @@
+# Gatehouse: database, migrations, API, web and (on a server) the HTTPS front door. Settings come from .env.
+#   On a laptop:  make setup && make up          -> http://localhost:3600
+#   On a server:  sudo sh ops/install.sh         -> https://<your address>   (see README.md)
+# The app's own ports bind to 127.0.0.1 only. On a server, the `https` service (Caddy) is the only thing the network
+# can reach: ports 80 and 443. It is switched on by COMPOSE_PROFILES=https in .env.
+name: ${COMPOSE_PROJECT_NAME:-gatehouse}
+
+x-db-env: &db-env
+  POSTGRES_USER: ${POSTGRES_USER:-gatehouse}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run make setup first}
+  POSTGRES_DB: ${POSTGRES_DB:-gatehouse}
+
+# Container logs are capped (5 files of 10 MB each per service) so a long pilot never fills the disk.
+x-logs: &logs
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "5" }
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment: *db-env
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      - ./db:/db:ro
+    ports: ["127.0.0.1:${DB_PORT:-5438}:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    mem_limit: 512m
+    restart: unless-stopped
+    <<: *logs
+
+  migrate:
+    image: postgres:16-alpine
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      <<: *db-env
+      PGHOST: db
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?run make setup first}
+    volumes: ["./db:/db:ro"]
+    entrypoint: ["sh", "/db/migrate.sh"]
+    restart: "no"
+    <<: *logs
+
+  api:
+    build: ./api
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    environment:
+      DATABASE_URL: postgres://gatehouse_app:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB:-gatehouse}
+      PORT: "3601"
+      SESSION_HOURS: ${SESSION_HOURS:-12}
+      INSTANCE: ${INSTANCE:-development}
+    ports: ["127.0.0.1:${API_PORT:-3601}:3601"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3601/api/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 384m
+    restart: unless-stopped
+    <<: *logs
+
+  web:
+    build: ./web
+    depends_on:
+      api: { condition: service_healthy }
+    environment:
+      API_URL: http://api:3601
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      BEHIND_PROXY: ${BEHIND_PROXY:-true}
+      SESSION_HOURS: ${SESSION_HOURS:-12}
+      PORT: "3600"
+    ports: ["127.0.0.1:${WEB_PORT:-3600}:3600"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3600/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    mem_limit: 512m
+    restart: unless-stopped
+    <<: *logs
+
+  # The HTTPS front door (servers only). Gets and renews a certificate by itself (TLS=you@example.com, needs a public
+  # DNS name), uses its own internal certificate (TLS=internal, for an on-site network), or your own certificate files
+  # (TLS="/certs/cert.pem /certs/key.pem" with the files in deploy/certs/). It replaces any X-Forwarded-For a visitor
+  # sends with their real address, which the sign-in lockout relies on.
+  https:
+    image: caddy:2.8-alpine
+    profiles: ["https"]
+    depends_on:
+      web: { condition: service_healthy }
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      TLS: ${TLS:-internal}
+    ports: ["${HTTP_PORT:-80}:80", "${HTTPS_PORT:-443}:443", "${HTTPS_PORT:-443}:443/udp"]
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/certs:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    mem_limit: 128m
+    restart: unless-stopped
+    <<: *logs
+
+volumes:
+  dbdata:
+  caddy_data:
+  caddy_config:

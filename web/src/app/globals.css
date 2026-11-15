@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+/*
+ * Gatehouse look: a gate logbook. Warm paper by day, asphalt by night, one signal-orange colour for the action that
+ * moves someone through the gate, and licence-plate chips for anything typed off a truck (plates, trailers, seals).
+ * Colours are tokens; components only use the token names below.
+ */
+:root {
+  --paper: #f3efe6;
+  --sheet: #fffdf7;
+  --sheet-2: #f8f4ea;
+  --ink: #1b1b18;
+  --ink-2: #5f5b52;
+  --rule: #d8d1c1;
+  --rule-strong: #b9b09c;
+  --signal: #d9480f;
+  --signal-ink: #ffffff;
+  --signal-soft: #fde6d8;
+  --go: #1f7a4d;
+  --go-soft: #dcefe4;
+  --wait: #9a6400;
+  --wait-soft: #fbedc9;
+  --stop: #b42318;
+  --stop-soft: #fbe0dc;
+  --info: #285e8e;
+  --info-soft: #dde9f4;
+  --plate: #fffef9;
+  --focus: #d9480f;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #111213;
+    --sheet: #1a1b1d;
+    --sheet-2: #212225;
+    --ink: #ece8de;
+    --ink-2: #a19d93;
+    --rule: #2f3033;
+    --rule-strong: #46474b;
+    --signal: #ff7a33;
+    --signal-ink: #1a0d05;
+    --signal-soft: #3a2014;
+    --go: #5cc78f;
+    --go-soft: #15301f;
+    --wait: #f0b54a;
+    --wait-soft: #35290f;
+    --stop: #ff8a7a;
+    --stop-soft: #3a1714;
+    --info: #86b7e3;
+    --info-soft: #15263a;
+    --plate: #26272a;
+    --focus: #ff7a33;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #111213;
+  --sheet: #1a1b1d;
+  --sheet-2: #212225;
+  --ink: #ece8de;
+  --ink-2: #a19d93;
+  --rule: #2f3033;
+  --rule-strong: #46474b;
+  --signal: #ff7a33;
+  --signal-ink: #1a0d05;
+  --signal-soft: #3a2014;
+  --go: #5cc78f;
+  --go-soft: #15301f;
+  --wait: #f0b54a;
+  --wait-soft: #35290f;
+  --stop: #ff8a7a;
+  --stop-soft: #3a1714;
+  --info: #86b7e3;
+  --info-soft: #15263a;
+  --plate: #26272a;
+  --focus: #ff7a33;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-sheet: var(--sheet);
+  --color-sheet-2: var(--sheet-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-signal: var(--signal);
+  --color-signal-ink: var(--signal-ink);
+  --color-signal-soft: var(--signal-soft);
+  --color-go: var(--go);
+  --color-go-soft: var(--go-soft);
+  --color-wait: var(--wait);
+  --color-wait-soft: var(--wait-soft);
+  --color-stop: var(--stop);
+  --color-stop-soft: var(--stop-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-plate: var(--plate);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+}
+
+html, body { background: var(--paper); color: var(--ink); }
+body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* The barrier stripe across the top of every screen. */
+.barrier {
+  height: 6px;
+  background: repeating-linear-gradient(-45deg, var(--signal) 0 14px, var(--ink) 14px 28px);
+}
+
+/* A label in small capitals, used for section heads and field labels. */
+.tag { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); }
+
+/* The tear line between parts of a pass. */
+.tear { border-top: 2px dashed var(--rule); }
+
+@media print {
+  .no-print { display: none !important; }
+}

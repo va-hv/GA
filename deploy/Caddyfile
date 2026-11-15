@@ -1,0 +1,18 @@
+# Gatehouse HTTPS front door. DOMAIN and TLS come from .env (see docker-compose.yml and README.md).
+{
+	admin off
+}
+
+{$DOMAIN} {
+	tls {$TLS}
+	encode gzip
+	reverse_proxy web:3600
+	header -Server
+	request_body {
+		max_size 6MB
+	}
+	log {
+		output stdout
+		format console
+	}
+}
