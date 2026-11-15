@@ -128,6 +128,8 @@ It backs up first, then rebuilds and restarts; database changes apply by themsel
 For trying it out, demos and training. This copy has no HTTPS, only this Mac can open it, and it stops when the Mac
 sleeps: use a server for real use. Works on Apple silicon and Intel Macs.
 
+**New to Terminal?** Follow [MAC-INSTALL.md](MAC-INSTALL.md): every command, one step at a time.
+
 ### B1. Once: install the tools
 
 1. Apple's command line tools: `xcode-select --install` (if it says they are installed, carry on).
