@@ -162,6 +162,110 @@ It then opens http://localhost:3600.
 
 ---
 
+## The database
+
+Gatehouse keeps everything in one PostgreSQL 16 database, inside Docker on the same machine. It is never reachable
+from the network: only from the machine itself.
+
+**Read, don't change.** These connections use the database's full-access account, which skips the app's rules. Make
+every change in the app: a change made directly in the database skips the rules and is not in the history, and an
+edited history entry makes the tamper check report the history as broken. If you ever must change something, run
+`make backup` first.
+
+### Connect
+
+| From | How |
+|---|---|
+| The server | `cd /opt/gatehouse && sudo make psql` |
+| The Mac copy | `cd ~/gatehouse && make psql` |
+| One query, no prompt | `make sql Q="SELECT count(*) FROM gate.visits"` (with `sudo` on the server) |
+| A desktop tool (DBeaver, pgAdmin, TablePlus) | See below |
+
+**From a desktop tool, through SSH** (the database port is never opened to the network). On your own computer:
+
+```bash
+ssh -L 5438:127.0.0.1:5438 <user>@<server>
+```
+
+Keep that window open, then connect the tool to host `localhost`, port `5438`, database `gatehouse`, user `gatehouse`.
+The password is on the server: `sudo grep POSTGRES_PASSWORD /opt/gatehouse/.env`. (On the Mac copy, connect straight to
+`localhost:5438` with the password from `~/gatehouse/.env`.)
+
+### At the prompt
+
+| | |
+|---|---|
+| `SET TIME ZONE 'America/Toronto';` | Show times in local time (they are stored, and shown by default, in UTC) |
+| `\dt base.*` and `\dt gate.*` | List the tables |
+| `\d gate.visits` | The columns of a table |
+| `\x` | Switch to one-field-per-line output (for wide rows) |
+| `\q` | Leave |
+
+### Where things are
+
+| Table | What |
+|---|---|
+| `base.orgs` | Sites |
+| `base.site_settings` | Each site's wording, retention periods and the two-step rule |
+| `base.accounts` | Staff logins (passwords are stored as hashes only) |
+| `base.kiosks` | Reception tablets |
+| `base.sessions` | Who is signed in (tokens are stored as hashes only) |
+| `gate.visits` | Every visitor, contractor and truck |
+| `base.history` | Every change, newest last, chained so tampering shows |
+
+### Useful queries
+
+Paste at the prompt, or run with `make sql Q="..."`.
+
+Who is on site now:
+```sql
+SELECT kind, full_name, company, truck_plate, status, arrived_at
+  FROM gate.visits WHERE status <> 'left' ORDER BY arrived_at;
+```
+
+The last 24 hours, by type and status:
+```sql
+SELECT kind, status, count(*) FROM gate.visits
+ WHERE arrived_at > now() - interval '24 hours' GROUP BY 1, 2 ORDER BY 1, 2;
+```
+
+Find a truck by plate or trailer (change `BX42`):
+```sql
+SELECT full_name, company, truck_plate, trailer_in, seal_in, trailer_out, seal_out, status, arrived_at, left_at
+  FROM gate.visits
+ WHERE truck_plate ILIKE '%BX42%' OR trailer_in ILIKE '%BX42%' OR trailer_out ILIKE '%BX42%';
+```
+
+People and their roles:
+```sql
+SELECT o.name AS site, a.username, a.full_name, a.role, a.active,
+       a.totp_enabled_at IS NOT NULL AS two_step, a.last_sign_in_at
+  FROM base.accounts a JOIN base.orgs o ON o.id = a.org_id ORDER BY 1, 4, 2;
+```
+
+The latest 20 changes:
+```sql
+SELECT at, actor, action, detail FROM base.history ORDER BY seq DESC LIMIT 20;
+```
+
+Is the history intact (should say `t` for every site):
+```sql
+SELECT name, base.history_intact(id) AS intact FROM base.orgs;
+```
+
+How many are signed in, and how big the database is:
+```sql
+SELECT count(*) FROM base.sessions WHERE ended_at IS NULL AND expires_at > now();
+SELECT pg_size_pretty(pg_database_size(current_database()));
+```
+
+Save a query's answer as a spreadsheet file:
+```bash
+sudo make sql CSV=1 Q="SELECT kind, full_name, company, truck_plate, arrived_at, left_at FROM gate.visits ORDER BY arrived_at" > visits.csv
+```
+
+---
+
 ## Commands
 
 | | |
@@ -172,4 +276,5 @@ It then opens http://localhost:3600.
 | `make update` | Backup, rebuild, apply database changes, restart |
 | `make site NAME='...' ADMIN=... ADMIN_NAME='...'` | Another site with its first admin |
 | `make up` / `make down` / `make status` / `make logs` | Start / stop / what is running / what it is doing |
+| `make psql` / `make sql Q="..."` | The database prompt / one query (see "The database") |
 | `make test` / `make e2e` | Database rule tests / end-to-end tests (`make e2e` and `make demo` refuse on a server) |

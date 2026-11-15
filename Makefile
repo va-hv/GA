@@ -5,9 +5,19 @@ PSQL := $(COMPOSE) exec -T db sh -c 'psql -X -q -v ON_ERROR_STOP=1 -U "$$POSTGRE
 INSTANCE := $(shell grep -s '^INSTANCE=' .env | cut -d= -f2)
 NOT_ON_PRODUCTION = @if [ "$(INSTANCE)" = production ]; then echo "Refused: this is a production install (INSTANCE=production in .env)."; exit 1; fi
 
-.PHONY: help setup up down restart migrate test e2e site demo status logs backup restore-test schedule prod-check update
+.PHONY: help setup up down restart migrate test e2e site demo status logs backup restore-test schedule prod-check update psql sql
+
+# The database prompt, and one query at a time (see README "The database"). Full access: read, don't change.
+psql:
+	$(COMPOSE) exec db sh -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
+
+sql:
+	@test -n "$(Q)" || { echo "usage: make sql Q=\"SELECT ...\"   (add CSV=1 for comma-separated output)"; exit 1; }
+	@$(COMPOSE) exec -T db sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" $(if $(CSV),--csv) -c "$$1"' sh "$(Q)"
 
 help:
+	@echo "make psql        the database prompt (read only, please)"
+	@echo "make sql Q=\"...\" one database query (CSV=1 for a spreadsheet-ready answer)"
 	@echo "On a server:  sudo bash ops/install.sh   (first time; see README.md)"
 	@echo "make prod-check  is the server ready? (settings, health, backups, HTTPS)"
 	@echo "make update      after copying in a new version: backup, rebuild, migrate, restart"
